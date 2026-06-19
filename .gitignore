@@ -1,0 +1,19 @@
+# Local/editor noise
+.DS_Store
+Thumbs.db
+
+# Oversized generated artifacts that are not needed by the static app shell.
+texture_outs_nut_potential.json
+texture_outs_nut_potential_interactive.html
+texture_outs_nut_potential_app/data.slim.json
+
+# Large generated static-data folders. Keep these out of normal Git history and
+# publish them to object storage/CDN for production hosting.
+board_details/
+current_showdowns/
+future_showdowns/
+range_cells/
+
+# Generated junction/deep per-flop CSV tree. Host separately if exact contributor
+# CSVs are needed online.
+per_flop/

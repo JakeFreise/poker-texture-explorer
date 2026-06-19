@@ -1,0 +1,90 @@
+{
+  "version": "draft-binary-1",
+  "notes": "Canonical range-vs-range pairings for flop texture exploration. Presets referenced here are defined in range_presets.json.",
+  "matchups": [
+    {
+      "id": "srp_utg_vs_bb",
+      "label": "SRP: UTG RFI vs BB Call",
+      "group": "SRP",
+      "aggressor": "utg_rfi",
+      "caller": "bb_call_vs_utg"
+    },
+    {
+      "id": "srp_hj_vs_bb",
+      "label": "SRP: HJ RFI vs BB Call",
+      "group": "SRP",
+      "aggressor": "hj_rfi",
+      "caller": "bb_call_vs_hj"
+    },
+    {
+      "id": "srp_co_vs_bb",
+      "label": "SRP: CO RFI vs BB Call",
+      "group": "SRP",
+      "aggressor": "co_rfi",
+      "caller": "bb_call_vs_co"
+    },
+    {
+      "id": "srp_btn_vs_bb",
+      "label": "SRP: BTN RFI vs BB Call",
+      "group": "SRP",
+      "aggressor": "btn_rfi",
+      "caller": "bb_call_vs_btn"
+    },
+    {
+      "id": "srp_sb_vs_bb",
+      "label": "SRP: SB RFI vs BB Call",
+      "group": "SRP / BvB",
+      "aggressor": "sb_rfi",
+      "caller": "bb_call_vs_sb"
+    },
+    {
+      "id": "srp_co_vs_btn",
+      "label": "SRP: CO RFI vs BTN Call",
+      "group": "SRP",
+      "aggressor": "co_rfi",
+      "caller": "btn_call_vs_co"
+    },
+    {
+      "id": "srp_utg_vs_btn",
+      "label": "SRP: UTG RFI vs BTN Call",
+      "group": "SRP",
+      "aggressor": "utg_rfi",
+      "caller": "btn_call_vs_utg"
+    },
+    {
+      "id": "threebet_utg_btn",
+      "label": "3BP: UTG Call vs BTN 3Bet",
+      "group": "3BP",
+      "aggressor": "btn_3bet_vs_utg",
+      "caller": "utg_call_vs_btn_3bet"
+    },
+    {
+      "id": "threebet_co_sb",
+      "label": "3BP: CO Call vs SB 3Bet",
+      "group": "3BP",
+      "aggressor": "sb_3bet_vs_btn",
+      "caller": "co_call_vs_sb_3bet"
+    },
+    {
+      "id": "threebet_btn_sb",
+      "label": "3BP: BTN Call vs SB 3Bet",
+      "group": "3BP",
+      "aggressor": "sb_3bet_vs_btn",
+      "caller": "btn_call_vs_sb_3bet"
+    },
+    {
+      "id": "diagnostic_broadway_vs_connectors",
+      "label": "Diagnostic: Broadway vs Suited Connectors",
+      "group": "Diagnostic",
+      "aggressor": "broadway_only",
+      "caller": "suited_connectors_only"
+    },
+    {
+      "id": "diagnostic_premium_vs_any_two",
+      "label": "Diagnostic: Premium vs Any Two",
+      "group": "Diagnostic",
+      "aggressor": "premium_only",
+      "caller": "any_two"
+    }
+  ]
+}
