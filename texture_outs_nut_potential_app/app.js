@@ -54,6 +54,8 @@ let yMode = "futureNut";
 let transformMode = "raw";
 let allBoardDetailsLoaded = false;
 let detailPreloadStarted = false;
+let boardDetailsLoadedCount = 0;
+let lastBackgroundDetailDraw = 0;
 let rangeCacheKey = "";
 let rangeCacheRows = null;
 let rangePresetConfig = null;
@@ -389,7 +391,7 @@ function refreshAfterRangePaintChange(role, message = "", options = {}) {
   if (options.renderEditor !== false) renderRangeEditor(role);
   renderRangeMatrices();
   refreshHoveredReadout();
-  if (allBoardDetailsLoaded) draw();
+  draw();
 }
 
 function parseEditorHands(text) {
@@ -1901,36 +1903,69 @@ async function loadBoardDetails(d) {
   return promise;
 }
 
-async function preloadAllBoardDetails() {
+function hasBoardDetails(d) {
+  return Boolean(d?.range_cells && d?.hand_strengths);
+}
+
+function delay(ms) {
+  return new Promise(resolve => window.setTimeout(resolve, ms));
+}
+
+async function preloadAllBoardDetails(options = {}) {
   if (allBoardDetailsLoaded) return;
   if (detailPreloadStarted) return;
+  const {
+    concurrency = 8,
+    delayMs = 0,
+    updateEvery = 25,
+    redraw = false,
+  } = options;
   detailPreloadStarted = true;
   const total = data.length;
   let nextIndex = 0;
   let completed = 0;
-  const concurrency = 8;
-  const updateEvery = 25;
   const worker = async () => {
     while (nextIndex < total) {
       const index = nextIndex++;
       await loadBoardDetails(data[index]);
       completed++;
+      boardDetailsLoadedCount = data.reduce((count, row) => count + (hasBoardDetails(row) ? 1 : 0), 0);
       if (completed % updateEvery === 0 || completed === total) {
         const detailPercent = total ? completed / total : 1;
         const percent = 45 + Math.round(45 * detailPercent);
         setLoadingProgress(percent, `Loading range details ${completed} / ${total}...`);
+        clearRangeDerivedCaches();
+        if (redraw && ["gold", "wetDynamic"].includes(plotView)) {
+          const now = performance.now();
+          if (completed === total || now - lastBackgroundDetailDraw > 750) {
+            lastBackgroundDetailDraw = now;
+            draw();
+          }
+        }
       }
+      if (delayMs) await delay(delayMs);
     }
   };
   await Promise.all(Array.from({length: Math.min(concurrency, total)}, worker));
   allBoardDetailsLoaded = true;
+  boardDetailsLoadedCount = data.length;
   rangeCacheKey = "";
   rangeCacheRows = null;
+  if (redraw && ["gold", "wetDynamic"].includes(plotView)) draw();
 }
 
 function shouldPreloadBoardDetails() {
   const params = new URLSearchParams(window.location.search);
   return params.has("preloadDetails") || localHosts.has(window.location.hostname);
+}
+
+function startBackgroundBoardDetailLoad() {
+  preloadAllBoardDetails({
+    concurrency: 1,
+    delayMs: 50,
+    updateEvery: 25,
+    redraw: true,
+  });
 }
 
 function selectedCellIndexes(selected) {
@@ -2249,13 +2284,13 @@ function rangeStrengthSummary(d, selected) {
 }
 
 function rangedData() {
-  if (!["gold", "wetDynamic"].includes(plotView) || !allBoardDetailsLoaded) return data;
-  const cacheKey = `${controls.heroRangePreset?.value || ""}|${controls.villainRangePreset?.value || ""}|${controls.heroRangePercent.value}|${controls.villainRangePercent.value}|${rangePresetRevision}|${yMode}|${plotView}|${drawPressureRole}`;
+  if (!["gold", "wetDynamic"].includes(plotView) || !boardDetailsLoadedCount) return data;
+  const cacheKey = `${controls.heroRangePreset?.value || ""}|${controls.villainRangePreset?.value || ""}|${controls.heroRangePercent.value}|${controls.villainRangePercent.value}|${rangePresetRevision}|${yMode}|${plotView}|${drawPressureRole}|${boardDetailsLoadedCount}`;
   if (rangeCacheRows && cacheKey === rangeCacheKey) return rangeCacheRows;
   const heroSelected = selectedRangeKeys("hero");
   const villainSelected = selectedRangeKeys("villain");
   rangeCacheKey = cacheKey;
-  rangeCacheRows = data.map(d => applyRanges(d, heroSelected, villainSelected));
+  rangeCacheRows = data.map(d => hasBoardDetails(d) ? applyRanges(d, heroSelected, villainSelected) : d);
   return rangeCacheRows;
 }
 
@@ -3286,7 +3321,7 @@ function finishRangeControlUpdate({renderEditor = false} = {}) {
   renderRangeMatrices();
   if (renderEditor) renderRangeEditor();
   refreshHoveredReadout();
-  if (allBoardDetailsLoaded) draw();
+  draw();
 }
 
 function scheduleRangeSliderUpdate() {
@@ -3296,7 +3331,7 @@ function scheduleRangeSliderUpdate() {
   if (rangeUpdateTimer) window.clearTimeout(rangeUpdateTimer);
   rangeUpdateTimer = window.setTimeout(() => {
     rangeUpdateTimer = null;
-    if (allBoardDetailsLoaded) draw();
+    draw();
   }, 120);
 }
 
@@ -3385,7 +3420,8 @@ async function bootInfographic() {
     }
     setLoadingProgress(92, "Drawing the range-aware plot...");
     draw();
-    setLoadingProgress(100, allBoardDetailsLoaded ? "Ready." : "Ready. Board details load on hover.");
+    if (!allBoardDetailsLoaded) startBackgroundBoardDetailLoad();
+    setLoadingProgress(100, allBoardDetailsLoaded ? "Ready." : "Ready. Range-aware plot fills in as board details load.");
     window.setTimeout(hideLoading, 180);
   } catch (error) {
     setLoadingProgress(100, "Could not load data.json. Start a local web server from this folder, then open the app URL.");
