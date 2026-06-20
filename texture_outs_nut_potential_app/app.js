@@ -2330,8 +2330,10 @@ function applyRanges(d, heroSelected, villainSelected) {
     hero_strength_avg: heroStrength.avg,
     villain_strength_avg: villainStrength.avg,
     range_strength_sum_edge: heroStrength.weightedSum - villainStrength.weightedSum,
-    legacy_range_advantage: heroStrength.avg - villainStrength.avg,
-    range_advantage: goldCurrentEdge === null ? heroStrength.avg - villainStrength.avg : goldCurrentEdge,
+    legacy_range_advantage: heroStrength.comboTotal && villainStrength.comboTotal ? heroStrength.avg - villainStrength.avg : d.range_advantage || 0,
+    range_advantage: goldCurrentEdge === null
+      ? (heroStrength.comboTotal && villainStrength.comboTotal ? heroStrength.avg - villainStrength.avg : d.range_advantage || 0)
+      : goldCurrentEdge,
   };
 }
 
@@ -2359,7 +2361,7 @@ function rangedData() {
   if (rangeCacheRows && cacheKey === rangeCacheKey) return rangeCacheRows;
   const heroSelected = selectedRangeKeys("hero");
   const villainSelected = selectedRangeKeys("villain");
-  const hasUsableDetails = plotView === "wetDynamic" ? hasRangePlotDetails : hasBoardDetails;
+  const hasUsableDetails = plotView === "wetDynamic" || yMode === "futureNut" ? hasRangePlotDetails : hasBoardDetails;
   rangeCacheKey = cacheKey;
   rangeCacheRows = data
     .filter(hasUsableDetails)
