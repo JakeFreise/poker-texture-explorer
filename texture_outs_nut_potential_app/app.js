@@ -37,9 +37,8 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-2";
+const rangePlotDataVersion = "range-plot-matrix-3";
 const futureShowdownVersion = "pair-straight-matrix-1";
-const rangePlotMatrixFieldCount = 8;
 const displayRoleLabels = {
   hero: "Aggressor",
   villain: "Caller"
@@ -61,6 +60,8 @@ let lastBackgroundDetailDraw = 0;
 let rangePlotDataLoaded = false;
 let rangePlotDataPromise = null;
 let rangePlotGainScale = 1e9;
+let rangePlotStrengthScale = 1e6;
+let rangePlotMatrixFieldCount = 9;
 let rangeCacheKey = "";
 let rangeCacheRows = null;
 let rangePresetConfig = null;
@@ -1087,11 +1088,13 @@ function rangePlotContribution(d, key) {
     flush_draw: Number(matrix[offset + 6] || 0),
     backdoor_flush: Number(matrix[offset + 7] || 0),
   };
-  if (!comboCount && !gain && !nutGain) return null;
+  const currentStrength = Number(matrix[offset + 8] || 0) / rangePlotStrengthScale;
+  if (!comboCount && !gain && !nutGain && !currentStrength) return null;
   return {
     combo_count: comboCount,
     gain,
     nut_gain: nutGain,
+    current_strength: currentStrength,
     current_draw_combos: drawCombos,
   };
 }
@@ -1957,6 +1960,8 @@ async function loadRangePlotData() {
     .then(compact => {
       const boards = compact?.boards || {};
       rangePlotGainScale = Number(compact?.gain_scale || rangePlotGainScale) || rangePlotGainScale;
+      rangePlotStrengthScale = Number(compact?.strength_scale || rangePlotStrengthScale) || rangePlotStrengthScale;
+      rangePlotMatrixFieldCount = Number(compact?.field_count || rangePlotMatrixFieldCount) || rangePlotMatrixFieldCount;
       let loaded = 0;
       for (const row of data) {
         const matrix = boards[boardDetailKey(row)];
@@ -2343,9 +2348,11 @@ function rangeStrengthSummary(d, selected) {
   let comboTotal = 0;
   for (const key of selected) {
     const entry = strengths[key];
-    if (!entry) continue;
-    const combos = entry.combo_count || 0;
-    weightedSum += (entry.strength || 0) * combos;
+    const compact = entry ? null : rangePlotContribution(d, key);
+    if (!entry && !compact) continue;
+    const combos = entry ? entry.combo_count || 0 : compact.combo_count || 0;
+    const strength = entry ? entry.strength || 0 : compact.current_strength || 0;
+    weightedSum += strength * combos;
     comboTotal += combos;
   }
   return {
