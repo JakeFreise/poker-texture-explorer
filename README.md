@@ -26,4 +26,4 @@ future_showdowns/                generated future-showdown database
 per_flop/                        generated exact contributor CSVs
 ```
 
-The large generated data folders are ignored by default so normal Git commits stay light. For production hosting, publish those folders to object storage/CDN, or deliberately remove the ignore rules if you want a large local-only Git history.
+`board_details/` and `future_showdowns/` are tracked so the public Pages app has the core interactive data it needs. `current_showdowns/`, `range_cells/`, and `per_flop/` are intentionally ignored because they push the site past GitHub Pages size limits; publish those to object storage/CDN if those exact showdown split details need to work online too.
