@@ -1,0 +1,148 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Aggressor Draw Pressure vs Nut-Shift Dynamicness</title>
+  <link rel="stylesheet" href="app.css?v=live-paint-range-1">
+
+</head>
+<body>
+<main>
+  <section class="plot-wrap">
+    <header>
+      <h1 id="plotTitle">Aggressor Draw Pressure vs Nut-Shift Dynamicness</h1>
+      <div>
+        <div class="plot-tabs" id="plotTabs">
+          <button class="plot-tab active" data-view="wetDynamic">Draw Pressure</button>
+          <button class="plot-tab" data-view="gold" data-y-mode="futureNut">Future Nut</button>
+          <button class="plot-tab" data-view="gold" data-y-mode="dirtyShared">Dirty Shared</button>
+        </div>
+        <div class="count" id="count"></div>
+      </div>
+    </header>
+    <svg id="plot" role="img" aria-label="Interactive flop texture plot"></svg>
+    <div class="tooltip" id="tooltip"></div>
+    <div class="loading-overlay" id="loadingOverlay" role="status" aria-live="polite">
+      <div class="loading-card">
+        <div class="loading-title">Loading interactive infographic</div>
+        <div class="loading-status" id="loadingStatus">Preparing app shell...</div>
+        <div class="loading-track" aria-hidden="true">
+          <div class="loading-bar" id="loadingBar"></div>
+        </div>
+      </div>
+    </div>
+  </section>
+  <aside>
+    <section class="section perspective-section" id="drawPressurePerspectiveSection">
+      <h2>Draw Pressure Perspective</h2>
+      <div class="segmented-control" role="radiogroup" aria-label="Draw pressure active range">
+        <label>
+          <input type="radio" name="drawPressureRole" value="hero" checked>
+          <span>Aggressor</span>
+        </label>
+        <label>
+          <input type="radio" name="drawPressureRole" value="villain">
+          <span>Caller</span>
+        </label>
+      </div>
+    </section>
+    <section class="section" id="heroRangeSection">
+      <div class="range-head">
+        <h2>Aggressor Range</h2>
+        <output id="heroRangeOutput">100%</output>
+      </div>
+      <label class="range-preset-label">
+        Preset
+        <select id="heroRangePreset"></select>
+      </label>
+      <button class="range-paint-toggle" id="heroPaintToggle" type="button" aria-expanded="false" aria-controls="heroPaintPanel">Paint range</button>
+      <div class="range-paint-panel" id="heroPaintPanel" hidden>
+        <label>
+          Hands
+          <textarea id="heroRangeEditorHands" spellcheck="false" rows="4" placeholder="AA KK QQ AKs AKo"></textarea>
+        </label>
+        <div class="paint-range-head">
+          <span>Paint range</span>
+          <output id="heroRangePaintCount">0/169</output>
+        </div>
+        <div class="range-paint-grid" id="heroRangePaintGrid" aria-label="Paint aggressor range hand grid"></div>
+        <div class="row">
+          <button id="heroPaintRangeAll" type="button">Select all</button>
+          <button id="heroPaintRangeClear" type="button">Clear</button>
+          <button id="heroApplyRangeEdit" type="button">Apply</button>
+          <button id="heroResetRangeEdit" type="button">Reset</button>
+        </div>
+        <div id="heroRangeEditorStatus" class="count"></div>
+      </div>
+      <div class="count" id="heroRangeCount"></div>
+      <div class="range-detail-layout">
+        <div class="frequency-panel count" id="heroFrequencyPanel">Hover a flop for aggressor frequencies.</div>
+        <div class="range-grid-column">
+          <input id="heroRangePercent" type="range" min="1" max="100" value="100" step="1">
+          <div class="range-matrix" id="heroRangeMatrix"></div>
+        </div>
+      </div>
+    </section>
+    <section class="section" id="villainRangeSection">
+      <div class="range-head">
+        <h2>Caller Range</h2>
+        <output id="villainRangeOutput">100%</output>
+      </div>
+      <label class="range-preset-label">
+        Preset
+        <select id="villainRangePreset"></select>
+      </label>
+      <button class="range-paint-toggle" id="villainPaintToggle" type="button" aria-expanded="false" aria-controls="villainPaintPanel">Paint range</button>
+      <div class="range-paint-panel" id="villainPaintPanel" hidden>
+        <label>
+          Hands
+          <textarea id="villainRangeEditorHands" spellcheck="false" rows="4" placeholder="AA KK QQ AKs AKo"></textarea>
+        </label>
+        <div class="paint-range-head">
+          <span>Paint range</span>
+          <output id="villainRangePaintCount">0/169</output>
+        </div>
+        <div class="range-paint-grid" id="villainRangePaintGrid" aria-label="Paint caller range hand grid"></div>
+        <div class="row">
+          <button id="villainPaintRangeAll" type="button">Select all</button>
+          <button id="villainPaintRangeClear" type="button">Clear</button>
+          <button id="villainApplyRangeEdit" type="button">Apply</button>
+          <button id="villainResetRangeEdit" type="button">Reset</button>
+        </div>
+        <div id="villainRangeEditorStatus" class="count"></div>
+      </div>
+      <div class="count" id="villainRangeCount"></div>
+      <div class="range-detail-layout">
+        <div class="frequency-panel count" id="villainFrequencyPanel">Hover a flop for caller frequencies.</div>
+        <div class="range-grid-column">
+          <input id="villainRangePercent" type="range" min="1" max="100" value="100" step="1">
+          <div class="range-matrix" id="villainRangeMatrix"></div>
+        </div>
+      </div>
+    </section>
+    <section class="section filters-section">
+      <h2>Filters</h2>
+      <label>
+        Suit texture
+        <select id="textureFilter">
+          <option value="all">All textures</option>
+        </select>
+      </label>
+      <label>
+        Flop/rank search
+        <input id="search" type="search" placeholder="654, J T 9, rainbow">
+      </label>
+      <div class="row">
+        <button id="pinMatching">Pin matching</button>
+        <button id="clearPins">Clear pins</button>
+      </div>
+      <button id="pcaTransform">Transform: PCA</button>
+      <button id="reset">Reset</button>
+    </section>
+  </aside>
+</main>
+<script src="app.js?v=live-paint-range-1" defer></script>
+
+</body>
+</html>
