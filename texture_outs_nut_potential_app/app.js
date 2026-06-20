@@ -295,11 +295,34 @@ function rangePaintElements(role) {
   };
 }
 
+function rangeSourceKey(role, preset = selectedPreset(role)) {
+  if (!preset) return "none";
+  const percentControl = role === "hero" ? controls.heroRangePercent : controls.villainRangePercent;
+  const percent = percentControl?.value || "";
+  return `${preset.id}|${preset.mode}|${percent}`;
+}
+
+function rangePresetKey(preset = null) {
+  return preset ? `${preset.id}|${preset.mode}` : "none";
+}
+
+function baseSelectedRangeKeys(role, preset = selectedPreset(role)) {
+  if (preset && preset.mode === "all") return new Set(rangeOrder);
+  if (preset && preset.mode !== "slider") return new Set(preset.hands);
+  const control = role === "hero" ? controls.heroRangePercent : controls.villainRangePercent;
+  const percent = Number(control.value);
+  const count = percent >= 100 ? rangeOrder.length : Math.max(1, Math.floor(rangeOrder.length * percent / 100));
+  return new Set(rangeOrder.slice(0, count));
+}
+
 function rangePaintDraft(role, preset = selectedPreset(role)) {
-  if (!preset || preset.mode !== "hands") return null;
+  if (!preset) return null;
+  const sourceKey = rangeSourceKey(role, preset);
+  const presetKey = rangePresetKey(preset);
   const current = rangePaintDrafts[role];
-  if (!current || current.presetId !== preset.id) {
-    rangePaintDrafts[role] = {presetId: preset.id, hands: [...preset.hands]};
+  if (current?.active && current.presetKey === presetKey) return current;
+  if (!current || current.sourceKey !== sourceKey || current.presetKey !== presetKey) {
+    rangePaintDrafts[role] = {sourceKey, presetKey, active: false, hands: [...baseSelectedRangeKeys(role, preset)]};
   }
   return rangePaintDrafts[role];
 }
@@ -317,16 +340,13 @@ function renderRangePaintEditor(role) {
   const elements = rangePaintElements(role);
   if (!elements.hands || !elements.grid) return;
   const preset = selectedPreset(role);
-  const isHandList = preset?.mode === "hands";
   const draft = rangePaintDraft(role, preset);
-  elements.hands.disabled = !isHandList;
-  elements.hands.value = isHandList
-    ? draft?.hands.join(" ") || ""
-    : preset?.mode === "all"
-    ? "This preset includes every hand in the 169-cell matrix."
-    : "Slider preset uses the top-N range order.";
+  elements.hands.disabled = !draft;
+  elements.hands.value = draft?.hands.join(" ") || "";
   if (elements.status && !elements.status.textContent) {
-    elements.status.textContent = preset?.description || "";
+    elements.status.textContent = draft?.active
+      ? `Using painted ${displayRoleLabels[role] || role} range.`
+      : `${preset?.label || "Range"} loaded as paint start.`;
   }
   renderRangePaintGrid(role, preset);
 }
@@ -335,12 +355,11 @@ function renderRangePaintGrid(role, preset = null) {
   const elements = rangePaintElements(role);
   if (!elements.grid) return;
   const selected = preset || selectedPreset(role);
-  const isHandList = selected?.mode === "hands";
   const draft = rangePaintDraft(role, selected);
-  const selectedHands = new Set(isHandList ? draft?.hands || selected.hands : []);
-  elements.grid.classList.toggle("disabled", !isHandList);
+  const selectedHands = new Set(draft?.hands || []);
+  elements.grid.classList.toggle("disabled", !draft);
   elements.grid.innerHTML = "";
-  if (elements.count) elements.count.textContent = isHandList ? `${selectedHands.size}/${rangeOrder.length}` : "locked";
+  if (elements.count) elements.count.textContent = draft ? `${selectedHands.size}/${rangeOrder.length}` : "locked";
   for (let row = 0; row < rankOrder.length; row++) {
     for (let col = 0; col < rankOrder.length; col++) {
       const key = matrixKey(row, col);
@@ -348,26 +367,21 @@ function renderRangePaintGrid(role, preset = null) {
       button.type = "button";
       button.className = `range-paint-cell ${rangeClass(key)}${selectedHands.has(key) ? " selected" : ""}`;
       button.textContent = key;
-      button.disabled = !isHandList;
+      button.disabled = !draft;
       button.setAttribute("aria-pressed", selectedHands.has(key) ? "true" : "false");
-      button.title = isHandList ? `${selectedHands.has(key) ? "Remove" : "Add"} ${key}` : "This preset cannot be painted.";
+      button.title = draft ? `${selectedHands.has(key) ? "Remove" : "Add"} ${key}` : "No range is available to paint.";
       button.addEventListener("click", () => togglePaintedRangeHand(role, key));
       elements.grid.appendChild(button);
     }
   }
 }
 
-function refreshAfterRangePresetEdit(role, message = "") {
+function refreshAfterRangePaintChange(role, message = "", options = {}) {
   const elements = rangePaintElements(role);
-  const preset = selectedPreset(role);
-  if (preset?.mode === "hands") {
-    rangePaintDrafts[role] = {presetId: preset.id, hands: [...preset.hands]};
-  }
-  saveRangePresetOverrides();
   rangePresetRevision += 1;
   clearRangeDerivedCaches();
   if (elements.status && message) elements.status.textContent = message;
-  renderRangeEditor();
+  if (options.renderEditor !== false) renderRangeEditor(role);
   renderRangeMatrices();
   refreshHoveredReadout();
   if (allBoardDetailsLoaded) draw();
@@ -395,34 +409,37 @@ function stageRangeEditorHands(role) {
   const elements = rangePaintElements(role);
   const preset = selectedPreset(role);
   const draft = rangePaintDraft(role, preset);
-  if (!preset || preset.mode !== "hands" || !draft) return;
+  if (!preset || !draft) return;
   const parsed = parseEditorHands(elements.hands?.value || "");
   draft.hands = parsed.hands;
+  draft.active = true;
   renderRangePaintGrid(role, preset);
   if (elements.status) {
     const invalidText = parsed.invalid.length ? ` Ignored invalid: ${parsed.invalid.slice(0, 8).join(", ")}${parsed.invalid.length > 8 ? "..." : ""}` : "";
-    elements.status.textContent = `${preset.label}: staged ${draft.hands.length} hands. Click Apply to update plot.${invalidText}`;
+    elements.status.textContent = `${preset.label}: using ${draft.hands.length} painted hands.${invalidText}`;
   }
+  refreshAfterRangePaintChange(role, "", {renderEditor: false});
 }
 
 function applyRangeEditorHands(role) {
   const elements = rangePaintElements(role);
   const preset = selectedPreset(role);
-  if (!preset || preset.mode !== "hands") {
-    if (elements.status) elements.status.textContent = "This preset cannot be edited as a hand list.";
+  const draft = rangePaintDraft(role, preset);
+  if (!preset || !draft) {
+    if (elements.status) elements.status.textContent = "No range is available to paint.";
     return;
   }
   const parsed = parseEditorHands(elements.hands?.value || "");
-  preset.hands = parsed.hands;
-  rangePaintDrafts[role] = {presetId: preset.id, hands: [...preset.hands]};
+  draft.hands = parsed.hands;
+  draft.active = true;
   const invalidText = parsed.invalid.length ? ` Ignored invalid: ${parsed.invalid.slice(0, 8).join(", ")}${parsed.invalid.length > 8 ? "..." : ""}` : "";
-  refreshAfterRangePresetEdit(role, `Saved ${preset.label}: ${preset.hands.length} hands.${invalidText}`);
+  refreshAfterRangePaintChange(role, `Using painted ${preset.label}: ${draft.hands.length} hands.${invalidText}`);
 }
 
 function togglePaintedRangeHand(role, key) {
   const preset = selectedPreset(role);
   const draft = rangePaintDraft(role, preset);
-  if (!preset || preset.mode !== "hands" || !draft) return;
+  if (!preset || !draft) return;
   const selected = new Set(draft.hands);
   if (selected.has(key)) {
     selected.delete(key);
@@ -430,48 +447,41 @@ function togglePaintedRangeHand(role, key) {
     selected.add(key);
   }
   draft.hands = rangeOrder.filter(hand => selected.has(hand));
-  renderRangePaintEditor(role);
-  const elements = rangePaintElements(role);
-  if (elements.status) {
-    elements.status.textContent = `${preset.label}: staged ${selected.has(key) ? "add" : "remove"} ${key}. ${draft.hands.length} hands selected. Click Apply to update plot.`;
-  }
+  draft.active = true;
+  refreshAfterRangePaintChange(role, `${preset.label}: ${selected.has(key) ? "added" : "removed"} ${key}. ${draft.hands.length} hands selected.`);
 }
 
 function setPaintedRangeHands(role, mode) {
   const elements = rangePaintElements(role);
   const preset = selectedPreset(role);
   const draft = rangePaintDraft(role, preset);
-  if (!preset || preset.mode !== "hands" || !draft) {
-    if (elements.status) elements.status.textContent = "This preset cannot be painted.";
+  if (!preset || !draft) {
+    if (elements.status) elements.status.textContent = "No range is available to paint.";
     return;
   }
   draft.hands = mode === "all" ? [...rangeOrder] : [];
-  renderRangePaintEditor(role);
-  if (elements.status) {
-    elements.status.textContent = `${preset.label}: staged ${mode === "all" ? "select all" : "clear"}. ${draft.hands.length} hands selected. Click Apply to update plot.`;
-  }
+  draft.active = true;
+  refreshAfterRangePaintChange(role, `${preset.label}: ${mode === "all" ? "selected all" : "cleared"}. ${draft.hands.length} hands selected.`);
 }
 
 function resetRangeEditorPreset(role) {
   const elements = rangePaintElements(role);
   const preset = selectedPreset(role);
-  const base = preset ? baseRangePresets.get(preset.id) : null;
-  if (!preset || !base || preset.mode !== "hands") {
-    if (elements.status) elements.status.textContent = "This preset has no hand list to reset.";
+  const draft = rangePaintDraft(role, preset);
+  if (!preset || !draft) {
+    if (elements.status) elements.status.textContent = "No range is available to reset.";
     return;
   }
-  preset.hands = [...base.hands];
-  refreshAfterRangePresetEdit(role, `Reset ${preset.label} to config file version.`);
+  draft.hands = [...baseSelectedRangeKeys(role, preset)];
+  draft.active = false;
+  refreshAfterRangePaintChange(role, `Reset paint to ${preset.label}.`);
 }
 
 function selectedRangeKeys(role) {
   const preset = selectedPreset(role);
-  if (preset && preset.mode === "all") return new Set(rangeOrder);
-  if (preset && preset.mode !== "slider") return new Set(preset.hands);
-  const control = role === "hero" ? controls.heroRangePercent : controls.villainRangePercent;
-  const percent = Number(control.value);
-  const count = percent >= 100 ? rangeOrder.length : Math.max(1, Math.floor(rangeOrder.length * percent / 100));
-  return new Set(rangeOrder.slice(0, count));
+  const draft = rangePaintDraft(role, preset);
+  if (draft?.active) return new Set(draft.hands);
+  return baseSelectedRangeKeys(role, preset);
 }
 
 function selectedComboSummary(d, selected) {
