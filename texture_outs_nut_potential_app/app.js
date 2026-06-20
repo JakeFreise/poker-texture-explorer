@@ -64,6 +64,10 @@ let rangeUpdateTimer = null;
 const rangePaintDrafts = {hero: null, villain: null};
 const rangePresetStorageKey = "pokersim.rangePresets.v1";
 const localHosts = new Set(["", "localhost", "127.0.0.1"]);
+const drawPressureStableDomain = {
+  x: [0.02, 0.29],
+  y: [-0.005, 0.126],
+};
 const controls = {
   heroRangePercent: document.getElementById("heroRangePercent"),
   villainRangePercent: document.getElementById("villainRangePercent"),
@@ -2469,6 +2473,44 @@ function pointSymbol(d, radius, attrs = {}) {
   return pointSymbolForCount(straightWindowCount(d), d._cx, d._cy, radius, attrs);
 }
 
+function paddedExtent(values, padRatio = 0.08) {
+  let [minValue, maxValue] = extent(values);
+  if (minValue === maxValue) {
+    minValue -= 0.5;
+    maxValue += 0.5;
+  }
+  const pad = (maxValue - minValue) * padRatio;
+  return [minValue - pad, maxValue + pad];
+}
+
+function expandDomainToValues(domain, values, padRatio = 0.08) {
+  if (!values.length) return domain;
+  let [domainMin, domainMax] = domain;
+  const [valueMin, valueMax] = extent(values);
+  if (valueMin < domainMin) {
+    const pad = (domainMax - valueMin) * padRatio;
+    domainMin = valueMin - pad;
+  }
+  if (valueMax > domainMax) {
+    const pad = (valueMax - domainMin) * padRatio;
+    domainMax = valueMax + pad;
+  }
+  return [domainMin, domainMax];
+}
+
+function plotDomains(xValues, yValues, isPcaTransform) {
+  if (plotView === "wetDynamic" && !isPcaTransform) {
+    return {
+      x: expandDomainToValues(drawPressureStableDomain.x, xValues),
+      y: expandDomainToValues(drawPressureStableDomain.y, yValues),
+    };
+  }
+  return {
+    x: paddedExtent(xValues),
+    y: paddedExtent(yValues),
+  };
+}
+
 function draw() {
   clearSvg();
   const bounds = svg.getBoundingClientRect();
@@ -2494,16 +2536,9 @@ function draw() {
   const isPcaTransform = transformMode === "pca";
   const xValues = rows.map(d => isPcaTransform ? d.pca_x : d.x_value);
   const yValues = rows.map(d => isPcaTransform ? d.pca_y : d.y_value);
-  let [xMin, xMax] = extent(xValues);
-  let [yMin, yMax] = extent(yValues);
-  if (xMin === xMax) { xMin -= 0.5; xMax += 0.5; }
-  if (yMin === yMax) { yMin -= 0.5; yMax += 0.5; }
-  const xPad = (xMax - xMin) * 0.08;
-  const yPad = (yMax - yMin) * 0.08;
-  xMin -= xPad;
-  xMax += xPad;
-  yMin -= yPad;
-  yMax += yPad;
+  const domains = plotDomains(xValues, yValues, isPcaTransform);
+  let [xMin, xMax] = domains.x;
+  let [yMin, yMax] = domains.y;
   const x = value => margin.left + (((isPcaTransform ? value : clamp(value, xMin, xMax)) - xMin) / (xMax - xMin)) * innerW;
   const y = value => margin.top + (1 - (((isPcaTransform ? value : clamp(value, yMin, yMax)) - yMin) / (yMax - yMin))) * innerH;
 
