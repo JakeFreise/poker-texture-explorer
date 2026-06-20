@@ -3292,10 +3292,10 @@ function finishRangeControlUpdate({renderEditor = false} = {}) {
 function scheduleRangeSliderUpdate() {
   clearRangeDerivedCaches();
   renderRangeMatrices();
+  refreshHoveredReadout();
   if (rangeUpdateTimer) window.clearTimeout(rangeUpdateTimer);
   rangeUpdateTimer = window.setTimeout(() => {
     rangeUpdateTimer = null;
-    refreshHoveredReadout();
     if (allBoardDetailsLoaded) draw();
   }, 120);
 }
