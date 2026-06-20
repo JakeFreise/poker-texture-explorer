@@ -37,6 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
+const rangePlotDataVersion = "range-plot-core-1";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -56,6 +57,8 @@ let allBoardDetailsLoaded = false;
 let detailPreloadStarted = false;
 let boardDetailsLoadedCount = 0;
 let lastBackgroundDetailDraw = 0;
+let rangePlotDataLoaded = false;
+let rangePlotDataPromise = null;
 let rangeCacheKey = "";
 let rangeCacheRows = null;
 let rangePresetConfig = null;
@@ -1069,7 +1072,7 @@ function sumFutureContributions(d, selected) {
   let gain = 0;
   let nutGain = 0;
   let combos = 0;
-  const cells = d.range_cells || {};
+  const cells = rangePlotCells(d);
   for (const key of selected) {
     const contribution = cells[key];
     if (!contribution) continue;
@@ -1363,8 +1366,12 @@ function futureFlushAccessShare(d, selected) {
   return finalCategoryShare(d, selected, ["straight_flush", "flush"]);
 }
 
+function rangePlotCells(d) {
+  return d?.range_cells || d?.range_plot_cells || {};
+}
+
 function rangeWetnessSummary(d, selected) {
-  const cells = d.range_cells || {};
+  const cells = rangePlotCells(d);
   let combos = 0;
   let totalCombos = 0;
   let straightDrawCombos = 0;
@@ -1880,6 +1887,11 @@ function attachShowdownData(d, currentRows = null, futureRows = null) {
   return d;
 }
 
+function boardDetailKey(d) {
+  const match = String(d?.details_file || "").match(/([^/\\]+)\.json$/);
+  return match ? match[1] : "";
+}
+
 async function loadBoardDetails(d) {
   if (d.range_cells && d.hand_strengths) return d;
   const path = d.details_file;
@@ -1905,6 +1917,41 @@ async function loadBoardDetails(d) {
 
 function hasBoardDetails(d) {
   return Boolean(d?.range_cells && d?.hand_strengths);
+}
+
+function hasRangePlotDetails(d) {
+  return Boolean(d?.range_plot_cells || d?.range_cells);
+}
+
+async function loadRangePlotData() {
+  if (rangePlotDataLoaded) return true;
+  if (rangePlotDataPromise) return rangePlotDataPromise;
+  const url = `range_plot_data.json?v=${rangePlotDataVersion}`;
+  rangePlotDataPromise = fetch(url)
+    .then(response => {
+      if (!response.ok) throw new Error(`HTTP ${response.status}`);
+      return response.json();
+    })
+    .then(compact => {
+      const cellsByBoard = compact?.cells_by_board || {};
+      let loaded = 0;
+      for (const row of data) {
+        const cells = cellsByBoard[boardDetailKey(row)];
+        if (!cells) continue;
+        row.range_plot_cells = cells;
+        loaded++;
+      }
+      rangePlotDataLoaded = loaded > 0;
+      boardDetailsLoadedCount = loaded;
+      rangeCacheKey = "";
+      rangeCacheRows = null;
+      return rangePlotDataLoaded;
+    })
+    .catch(error => {
+      console.error(error);
+      return false;
+    });
+  return rangePlotDataPromise;
 }
 
 function delay(ms) {
@@ -1956,7 +2003,7 @@ async function preloadAllBoardDetails(options = {}) {
 
 function shouldPreloadBoardDetails() {
   const params = new URLSearchParams(window.location.search);
-  return params.has("preloadDetails") || localHosts.has(window.location.hostname);
+  return params.has("preloadDetails");
 }
 
 function startBackgroundBoardDetailLoad() {
@@ -2284,13 +2331,16 @@ function rangeStrengthSummary(d, selected) {
 }
 
 function rangedData() {
-  if (!["gold", "wetDynamic"].includes(plotView) || !boardDetailsLoadedCount) return data;
+  if (!["gold", "wetDynamic"].includes(plotView)) return data;
   const cacheKey = `${controls.heroRangePreset?.value || ""}|${controls.villainRangePreset?.value || ""}|${controls.heroRangePercent.value}|${controls.villainRangePercent.value}|${rangePresetRevision}|${yMode}|${plotView}|${drawPressureRole}|${boardDetailsLoadedCount}`;
   if (rangeCacheRows && cacheKey === rangeCacheKey) return rangeCacheRows;
   const heroSelected = selectedRangeKeys("hero");
   const villainSelected = selectedRangeKeys("villain");
+  const hasUsableDetails = plotView === "wetDynamic" ? hasRangePlotDetails : hasBoardDetails;
   rangeCacheKey = cacheKey;
-  rangeCacheRows = data.map(d => hasBoardDetails(d) ? applyRanges(d, heroSelected, villainSelected) : d);
+  rangeCacheRows = data
+    .filter(hasUsableDetails)
+    .map(d => applyRanges(d, heroSelected, villainSelected));
   return rangeCacheRows;
 }
 
@@ -2556,12 +2606,17 @@ function draw() {
   const title = yModeTitle();
   document.getElementById("plotTitle").textContent = title;
   document.title = title;
-  document.getElementById("count").textContent = `${rows.length} / ${data.length} flops`;
+  const isRangeAwareView = ["gold", "wetDynamic"].includes(plotView);
+  document.getElementById("count").textContent = isRangeAwareView && !allBoardDetailsLoaded
+    ? `${rows.length} / ${data.length} range-ready flops`
+    : `${rows.length} / ${data.length} flops`;
   renderRangeMatrices();
   renderFrequencyPanels();
   renderPinnedList();
   if (!rows.length) {
-    svg.appendChild(el("text", {x: width / 2, y: height / 2, class: "empty"})).textContent = "No flops match the current filters";
+    svg.appendChild(el("text", {x: width / 2, y: height / 2, class: "empty"})).textContent = isRangeAwareView && !boardDetailsLoadedCount
+      ? "Loading range-ready board details..."
+      : "No flops match the current filters";
     return;
   }
 
@@ -3417,11 +3472,13 @@ async function bootInfographic() {
     bindControls();
     if (shouldPreloadBoardDetails()) {
       await preloadAllBoardDetails();
+    } else {
+      setLoadingProgress(68, "Loading compact range plot data...");
+      await loadRangePlotData();
     }
     setLoadingProgress(92, "Drawing the range-aware plot...");
     draw();
-    if (!allBoardDetailsLoaded) startBackgroundBoardDetailLoad();
-    setLoadingProgress(100, allBoardDetailsLoaded ? "Ready." : "Ready. Range-aware plot fills in as board details load.");
+    setLoadingProgress(100, allBoardDetailsLoaded || rangePlotDataLoaded ? "Ready." : "Ready. Board details load on hover.");
     window.setTimeout(hideLoading, 180);
   } catch (error) {
     setLoadingProgress(100, "Could not load data.json. Start a local web server from this folder, then open the app URL.");
