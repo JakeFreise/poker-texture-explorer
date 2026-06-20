@@ -37,8 +37,9 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-core-1";
+const rangePlotDataVersion = "range-plot-matrix-1";
 const futureShowdownVersion = "pair-straight-matrix-1";
+const rangePlotMatrixFieldCount = 8;
 const displayRoleLabels = {
   hero: "Aggressor",
   villain: "Caller"
@@ -59,6 +60,7 @@ let boardDetailsLoadedCount = 0;
 let lastBackgroundDetailDraw = 0;
 let rangePlotDataLoaded = false;
 let rangePlotDataPromise = null;
+let rangePlotGainScale = 1e9;
 let rangeCacheKey = "";
 let rangeCacheRows = null;
 let rangePresetConfig = null;
@@ -1068,13 +1070,38 @@ function strengthColor(strength) {
   return "rgb(253, 231, 37)";
 }
 
+function rangePlotContribution(d, key) {
+  const cells = d?.range_cells;
+  if (cells?.[key]) return cells[key];
+  const matrix = d?.range_plot_matrix;
+  const rank = rangeRank.get(key);
+  if (!matrix || !rank) return null;
+  const offset = (rank - 1) * rangePlotMatrixFieldCount;
+  const comboCount = Number(matrix[offset] || 0);
+  const gain = Number(matrix[offset + 1] || 0) / rangePlotGainScale;
+  const nutGain = Number(matrix[offset + 2] || 0) / rangePlotGainScale;
+  const drawCombos = {
+    open_ender: Number(matrix[offset + 3] || 0),
+    gutshot: Number(matrix[offset + 4] || 0),
+    backdoor_straight: Number(matrix[offset + 5] || 0),
+    flush_draw: Number(matrix[offset + 6] || 0),
+    backdoor_flush: Number(matrix[offset + 7] || 0),
+  };
+  if (!comboCount && !gain && !nutGain) return null;
+  return {
+    combo_count: comboCount,
+    gain,
+    nut_gain: nutGain,
+    current_draw_combos: drawCombos,
+  };
+}
+
 function sumFutureContributions(d, selected) {
   let gain = 0;
   let nutGain = 0;
   let combos = 0;
-  const cells = rangePlotCells(d);
   for (const key of selected) {
-    const contribution = cells[key];
+    const contribution = rangePlotContribution(d, key);
     if (!contribution) continue;
     gain += contribution.gain || 0;
     nutGain += contribution.nut_gain || 0;
@@ -1366,23 +1393,18 @@ function futureFlushAccessShare(d, selected) {
   return finalCategoryShare(d, selected, ["straight_flush", "flush"]);
 }
 
-function rangePlotCells(d) {
-  return d?.range_cells || d?.range_plot_cells || {};
-}
-
 function rangeWetnessSummary(d, selected) {
-  const cells = rangePlotCells(d);
   let combos = 0;
   let totalCombos = 0;
   let straightDrawCombos = 0;
   let flushDrawCombos = 0;
   for (const key of rangeOrder) {
-    const contribution = cells[key];
+    const contribution = rangePlotContribution(d, key);
     if (!contribution) continue;
     totalCombos += Number(contribution.combo_count || 0);
   }
   for (const key of selected) {
-    const contribution = cells[key];
+    const contribution = rangePlotContribution(d, key);
     if (!contribution) continue;
     const comboCount = Number(contribution.combo_count || 0);
     combos += comboCount;
@@ -1920,7 +1942,7 @@ function hasBoardDetails(d) {
 }
 
 function hasRangePlotDetails(d) {
-  return Boolean(d?.range_plot_cells || d?.range_cells);
+  return Boolean(d?.range_plot_matrix || d?.range_cells);
 }
 
 async function loadRangePlotData() {
@@ -1933,12 +1955,13 @@ async function loadRangePlotData() {
       return response.json();
     })
     .then(compact => {
-      const cellsByBoard = compact?.cells_by_board || {};
+      const boards = compact?.boards || {};
+      rangePlotGainScale = Number(compact?.gain_scale || rangePlotGainScale) || rangePlotGainScale;
       let loaded = 0;
       for (const row of data) {
-        const cells = cellsByBoard[boardDetailKey(row)];
-        if (!cells) continue;
-        row.range_plot_cells = cells;
+        const matrix = boards[boardDetailKey(row)];
+        if (!matrix) continue;
+        row.range_plot_matrix = matrix;
         loaded++;
       }
       rangePlotDataLoaded = loaded > 0;
