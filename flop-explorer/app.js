@@ -2794,14 +2794,16 @@ function categoryLabel(category) {
 
 function spectrumSegmentsHtml(category, breakdown) {
   if (breakdown?.segments?.length) {
-    const segmentSummary = breakdown.segments
-      .filter(segment => Number(segment.value || 0) > 0)
+    const nonzeroSegments = breakdown.segments.filter(segment => Number(segment.value || 0) > 0);
+    const segmentSummary = nonzeroSegments
       .map(segment => `${segment.label} ${pct(segment.value / breakdown.total)}`)
       .join("&#10;");
     return breakdown.segments.map(segment => {
       const width = breakdown.total > 0 ? 100 * segment.value / breakdown.total : 0;
       const shareText = pct(segment.value / breakdown.total);
-      const title = segmentSummary ? `${segment.label}: ${shareText}&#10;${segmentSummary}` : `${segment.label}: ${shareText}`;
+      const title = segmentSummary && nonzeroSegments.length > 1
+        ? `${segment.label}: ${shareText}&#10;${segmentSummary}`
+        : `${segment.label}: ${shareText}`;
       return `<div class="spectrum-segment" style="width: ${width.toFixed(1)}%; background: ${segment.color};" title="${title}"></div>`;
     }).join("");
   }
