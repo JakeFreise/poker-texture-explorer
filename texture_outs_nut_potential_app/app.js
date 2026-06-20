@@ -63,6 +63,7 @@ let rangePresetRevision = 0;
 let rangeUpdateTimer = null;
 const rangePaintDrafts = {hero: null, villain: null};
 const rangePresetStorageKey = "pokersim.rangePresets.v1";
+const localHosts = new Set(["", "localhost", "127.0.0.1"]);
 const controls = {
   heroRangePercent: document.getElementById("heroRangePercent"),
   villainRangePercent: document.getElementById("villainRangePercent"),
@@ -1923,6 +1924,11 @@ async function preloadAllBoardDetails() {
   rangeCacheRows = null;
 }
 
+function shouldPreloadBoardDetails() {
+  const params = new URLSearchParams(window.location.search);
+  return params.has("preloadDetails") || localHosts.has(window.location.hostname);
+}
+
 function selectedCellIndexes(selected) {
   return new Set([...selected].map(key => (rangeRank.get(key) || 1) - 1));
 }
@@ -3337,10 +3343,12 @@ async function bootInfographic() {
     setLoadingProgress(45, "Building filters and range matrices...");
     initControls();
     bindControls();
-    await preloadAllBoardDetails();
+    if (shouldPreloadBoardDetails()) {
+      await preloadAllBoardDetails();
+    }
     setLoadingProgress(92, "Drawing the range-aware plot...");
     draw();
-    setLoadingProgress(100, "Ready.");
+    setLoadingProgress(100, allBoardDetailsLoaded ? "Ready." : "Ready. Board details load on hover.");
     window.setTimeout(hideLoading, 180);
   } catch (error) {
     setLoadingProgress(100, "Could not load data.json. Start a local web server from this folder, then open the app URL.");
