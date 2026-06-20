@@ -1,0 +1,17 @@
+stages:
+  - deploy
+
+pages:
+  stage: deploy
+  image: alpine:3.20
+  script:
+    - mkdir -p public/flop-explorer
+    - cp -r texture_outs_nut_potential_app/. public/flop-explorer/
+    - cp *.png public/ 2>/dev/null || true
+    - printf '<!doctype html><meta charset="utf-8"><title>blob.ink</title><a href="/flop-explorer/">Flop Explorer</a>' > public/index.html
+  pages: true
+  artifacts:
+    paths:
+      - public
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"
