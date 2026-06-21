@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-3";
+const rangePlotDataVersion = "range-plot-matrix-4";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -2421,6 +2421,21 @@ function filteredData() {
   });
 }
 
+function visiblePlotData() {
+  const rows = filteredData();
+  if (!pinned.size && !selectedFlop) return rows;
+  const rowsByKey = new Map(rows.map(d => [rowKey(d), d]));
+  const rangeRowsByKey = new Map(rangedData().map(d => [rowKey(d), d]));
+  const stickyKeys = new Set(pinned);
+  if (selectedFlop) stickyKeys.add(rowKey(selectedFlop));
+  for (const key of stickyKeys) {
+    if (!rowsByKey.has(key) && rangeRowsByKey.has(key)) {
+      rows.push(rangeRowsByKey.get(key));
+    }
+  }
+  return rows;
+}
+
 function normalizeSearch(value) {
   return value.trim().toLowerCase().replace(/\s+/g, "_");
 }
@@ -2634,7 +2649,7 @@ function draw() {
   const width = Math.max(720, bounds.width);
   const height = Math.max(560, bounds.height);
   svg.setAttribute("viewBox", `0 0 ${width} ${height}`);
-  let rows = rankedRows(filteredData());
+  let rows = rankedRows(visiblePlotData());
   const title = yModeTitle();
   document.getElementById("plotTitle").textContent = title;
   document.title = title;
