@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-4";
+const rangePlotDataVersion = "range-plot-matrix-5";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -662,7 +662,7 @@ function rangeCellSummaryTitle(role, key, d, contribution, isInRange, rank, draw
   }
   lines.push(`${fmtCombos(Number(contribution.combo_count || 0))} live combos after board removal`);
   const strength = Number(contribution.current_strength || 0);
-  lines.push(`Raw strength percent: ${pct(strength)}`);
+  lines.push(`Current hand percentile: ${pct(strength)}`);
   if (drawBadge) lines.push(`Draw avg outs: ${drawBadge.label}`);
   lines.push("Click a flop for detailed hand matchup results.");
   return lines.join("\n");
@@ -693,14 +693,13 @@ function rangeCellTooltip(role, key, d, contribution, strengthEntry, currentShow
   }
   const strength = Number(strengthEntry?.strength ?? contribution.current_strength ?? 0);
   const category = strengthEntry?.category ? ` ${strengthEntry.category}` : "";
-  lines.push(`Current strength score: ${fmt(strength, 3)}${category}`);
+  lines.push(`Current hand percentile: ${pct(strength)}${category}`);
 
   if (!isInRange) {
     lines.push(`Not included in the selected ${roleLabel} preset.`);
   }
 
   if (plotView === "wetDynamic") {
-    lines.push(`Raw strength percent: ${pct(strength)}`);
     lines.push("Opponent range is not used in Draw Pressure.");
     return lines.join("\n");
   }
