@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-6";
+const rangePlotDataVersion = "range-plot-matrix-7";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -61,7 +61,8 @@ let rangePlotDataLoaded = false;
 let rangePlotDataPromise = null;
 let rangePlotGainScale = 1e9;
 let rangePlotStrengthScale = 1e6;
-let rangePlotMatrixFieldCount = 9;
+let rangePlotOutsScale = 1e6;
+let rangePlotMatrixFieldCount = 10;
 let rangeCacheKey = "";
 let rangeCacheRows = null;
 let rangePresetConfig = null;
@@ -1090,12 +1091,14 @@ function rangePlotContribution(d, key) {
     backdoor_flush: Number(matrix[offset + 7] || 0),
   };
   const currentStrength = Number(matrix[offset + 8] || 0) / rangePlotStrengthScale;
-  if (!comboCount && !gain && !nutGain && !currentStrength) return null;
+  const effectiveOuts = Number(matrix[offset + 9] || 0) / rangePlotOutsScale;
+  if (!comboCount && !gain && !nutGain && !currentStrength && !effectiveOuts) return null;
   return {
     combo_count: comboCount,
     gain,
     nut_gain: nutGain,
     current_strength: currentStrength,
+    effective_outs: effectiveOuts,
     current_draw_combos: drawCombos,
   };
 }
@@ -1962,6 +1965,7 @@ async function loadRangePlotData() {
       const boards = compact?.boards || {};
       rangePlotGainScale = Number(compact?.gain_scale || rangePlotGainScale) || rangePlotGainScale;
       rangePlotStrengthScale = Number(compact?.strength_scale || rangePlotStrengthScale) || rangePlotStrengthScale;
+      rangePlotOutsScale = Number(compact?.outs_scale || rangePlotOutsScale) || rangePlotOutsScale;
       rangePlotMatrixFieldCount = Number(compact?.field_count || rangePlotMatrixFieldCount) || rangePlotMatrixFieldCount;
       let loaded = 0;
       for (const row of data) {
@@ -2232,16 +2236,15 @@ function goldCurrentMatchupEdge(d) {
 }
 
 function matchupOuts(d, heroSelected, villainSelected) {
-  const cells = d.range_cells || {};
   let heroClean = 0;
   let villainClean = 0;
   let dirtyShared = 0;
   let totalWeight = 0;
   for (const heroKey of heroSelected) {
-    const hero = cells[heroKey];
+    const hero = rangePlotContribution(d, heroKey);
     if (!hero || !hero.combo_count) continue;
     for (const villainKey of villainSelected) {
-      const villain = cells[villainKey];
+      const villain = rangePlotContribution(d, villainKey);
       if (!villain || !villain.combo_count) continue;
       const weight = hero.combo_count * villain.combo_count;
       const heroStrength = hero.current_strength || 0;
@@ -2299,13 +2302,14 @@ function applyRanges(d, heroSelected, villainSelected) {
   const villainFutureFlushAccess = futureFlushAccessShare(d, villainSelected);
   const heroWetness = rangeWetnessSummary(d, heroSelected);
   const villainWetness = rangeWetnessSummary(d, villainSelected);
+  const dirtyOuts = yMode === "dirtyShared" ? matchupOuts(d, heroSelected, villainSelected) : null;
   return {
     ...d,
     effective_outs: heroFuture.effectiveOuts - villainFuture.effectiveOuts,
     raw_effective_outs_edge: heroFuture.effectiveOuts - villainFuture.effectiveOuts,
-    hero_clean_outs: 0,
-    villain_clean_outs: 0,
-    dirty_shared_outs: Math.min(heroFuture.effectiveOuts, villainFuture.effectiveOuts),
+    hero_clean_outs: dirtyOuts ? dirtyOuts.heroClean : 0,
+    villain_clean_outs: dirtyOuts ? dirtyOuts.villainClean : 0,
+    dirty_shared_outs: dirtyOuts ? dirtyOuts.dirtyShared : Math.min(heroFuture.effectiveOuts, villainFuture.effectiveOuts),
     hero_effective_outs: heroFuture.effectiveOuts,
     villain_effective_outs: villainFuture.effectiveOuts,
     hero_nut_outs: heroFuture.nutOuts,
@@ -2369,7 +2373,7 @@ function rangedData() {
   if (rangeCacheRows && cacheKey === rangeCacheKey) return rangeCacheRows;
   const heroSelected = selectedRangeKeys("hero");
   const villainSelected = selectedRangeKeys("villain");
-  const hasUsableDetails = plotView === "wetDynamic" || yMode === "futureNut" ? hasRangePlotDetails : hasBoardDetails;
+  const hasUsableDetails = plotView === "wetDynamic" || yMode === "futureNut" || yMode === "dirtyShared" ? hasRangePlotDetails : hasBoardDetails;
   rangeCacheKey = cacheKey;
   rangeCacheRows = data
     .filter(hasUsableDetails)
