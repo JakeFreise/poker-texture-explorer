@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-7";
+const rangePlotDataVersion = "range-plot-matrix-8";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -3128,7 +3128,11 @@ function finalCategoryFrequencyHtml(label, breakdown, showdowns = null) {
 }
 
 function compactTooltipHtml(d) {
+  const xValue = Number.isFinite(Number(d.x_value)) ? fmt(d.x_value, 3) : "--";
+  const yValue = Number.isFinite(Number(d.y_value)) ? fmt(d.y_value, 3) : "--";
   return `<b>${d.flop_key}</b>
+    <div>${d.suit_texture} / ${d.rank_structure} / ${d.pairedness}</div>
+    <div>x ${xValue} / y ${yValue}</div>
     <div>Straight windows: ${straightWindowCount(d)} / 5</div>`;
 }
 
@@ -3237,7 +3241,7 @@ function tooltipHtml(d, currentShowdowns = null, futureShowdowns = null, compact
     <div><b>Texture metrics</b></div>
     <div>Aggressor draw pressure: ${fmt(wetnessScore(d), 3)}</div>
     <div>Nut-shift dynamicness: ${fmt(dynamicnessScore(d), 3)}</div>
-    <div>Current matchup edge (Aggressor - Caller): ${fmt(d.range_advantage || 0, 3)}</div>
+    <div>Current strength edge (Aggressor - Caller): ${fmt(d.range_advantage || 0, 3)}</div>
     <div>Current nut made edge (Aggressor - Caller): ${fmt(d.current_nut_made_edge || 0, 3)}</div>
     <div>Current flush access edge (Aggressor - Caller): ${fmt(d.flush_access_edge || 0, 3)}</div>
     <div>Future nut outs edge (Aggressor - Caller): ${fmt(d.nut_outs_edge || 0, 3)}</div>
