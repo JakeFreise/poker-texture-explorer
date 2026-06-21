@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-5";
+const rangePlotDataVersion = "range-plot-matrix-6";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -140,7 +140,7 @@ function fallbackRangePresetConfig() {
   return {
     version: "fallback-binary-1",
     presets: [
-      {id: "top_strength_slider", label: "Top strength slider", group: "Manual", mode: "slider", hands: []},
+      {id: "top_strength_slider", label: "Top ranked hands slider", group: "Manual", mode: "slider", hands: []},
       {id: "co_rfi", label: "CO RFI", group: "RFI", hands: ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AKs", "AQs", "AJs", "ATs", "A9s", "A8s", "A5s", "A4s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s", "98s", "87s", "76s", "AKo", "AQo", "AJo", "ATo", "KQo"]},
       {id: "bb_call_vs_co", label: "BB Call vs CO", group: "Facing RFI", hands: ["QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s", "A5s", "A4s", "A3s", "A2s", "KQs", "KJs", "KTs", "K9s", "K8s", "QJs", "QTs", "Q9s", "JTs", "J9s", "T9s", "T8s", "98s", "97s", "87s", "76s", "65s", "AQo", "AJo", "ATo", "KQo", "KJo", "QJo"]}
     ]
@@ -164,7 +164,7 @@ function normalizeRangePresets() {
     }))
     .filter(preset => preset.id && preset.label);
   if (!rangePresets.some(preset => preset.mode === "slider")) {
-    rangePresets.unshift({id: "top_strength_slider", label: "Top strength slider", group: "Manual", description: "", mode: "slider", hands: []});
+    rangePresets.unshift({id: "top_strength_slider", label: "Top ranked hands slider", group: "Manual", description: "", mode: "slider", hands: []});
   }
   baseRangePresets = new Map(rangePresets.map(preset => [preset.id, {...preset, hands: [...preset.hands]}]));
 }
@@ -564,18 +564,20 @@ function renderRangeMatrix(role) {
   const rangeActive = ["gold", "wetDynamic"].includes(plotView);
   const richCellTooltips = Boolean(selectedFlop && detailFlop && rowKey(selectedFlop) === rowKey(detailFlop));
   const usesSlider = !rangePreset || rangePreset.mode === "slider";
-  output.textContent = usesSlider ? `${percentControl.value}%` : "Preset";
+  output.textContent = usesSlider ? `Top ${percentControl.value}%` : "Preset";
   percentControl.disabled = !rangeActive || !usesSlider;
   countLabel.innerHTML = "";
   if (!rangeActive) {
     countLabel.textContent = "Range controls apply to Gold and Draw Pressure";
   } else {
     const rankLine = document.createElement("div");
-    const presetLabel = usesSlider ? "top strength" : rangePreset.label;
+    const presetLabel = usesSlider ? "top ranked hands" : rangePreset.label;
     const boardLabel = detailFlop
       ? `${selectedFlop ? "selected " : ""}${detailFlop.flop_key} ranks`
       : "no board selected";
-    rankLine.textContent = `${presetLabel}: ${count}/${rangeOrder.length} cells - ${boardLabel}`;
+    rankLine.textContent = usesSlider
+      ? `${presetLabel}: ${percentControl.value}% (${count}/${rangeOrder.length} hand cells) - ${boardLabel}`
+      : `${presetLabel}: ${count}/${rangeOrder.length} hand cells - ${boardLabel}`;
     const comboLine = document.createElement("div");
     comboLine.className = "combo-compression";
     comboLine.textContent = comboSummary
@@ -2474,7 +2476,7 @@ function yMetricValue(d) {
 function xModeLabel() {
   if (transformMode === "pca") return "PC1: " + xModeLabelBase() + " / " + yModeLabelBase();
   if (plotView === "wetDynamic") return `${drawPressureRoleLabel()} Draw Pressure`;
-  return "Aggressor Edge: Current Matchup";
+  return "Aggressor Edge: Current Strength";
 }
 
 function yModeLabel() {
@@ -2485,7 +2487,7 @@ function yModeLabel() {
 
 function xModeLabelBase() {
   if (plotView === "wetDynamic") return `${drawPressureRoleLabel()} Draw Pressure`;
-  return "Current Matchup Edge";
+  return "Current Strength Edge";
 }
 
 function yModeLabelBase() {
@@ -2498,8 +2500,8 @@ function yModeTitle() {
   const baseTitle = plotView === "wetDynamic"
     ? `${drawPressureRoleLabel()} Draw Pressure vs Nut-Shift Dynamicness`
     : yMode === "dirtyShared"
-    ? "Aggressor vs Caller: Current Matchup vs Dirty Shared Outs"
-    : "Aggressor vs Caller: Current Matchup vs Future Nut Outs";
+    ? "Aggressor vs Caller: Current Strength vs Dirty Shared Outs"
+    : "Aggressor vs Caller: Current Strength vs Future Nut Outs";
   if (transformMode === "pca") return `${baseTitle} (PCA Transform)`;
   return baseTitle;
 }
@@ -2554,6 +2556,12 @@ function el(name, attrs = {}) {
   const node = document.createElementNS("http://www.w3.org/2000/svg", name);
   for (const [key, value] of Object.entries(attrs)) node.setAttribute(key, value);
   return node;
+}
+
+function appendSvgTitle(node, text) {
+  const title = el("title");
+  title.textContent = text;
+  node.appendChild(title);
 }
 
 function polygonPoints(cx, cy, radius, sides, rotation = -Math.PI / 2) {
@@ -2654,14 +2662,14 @@ function draw() {
   document.title = title;
   const isRangeAwareView = ["gold", "wetDynamic"].includes(plotView);
   document.getElementById("count").textContent = isRangeAwareView && !allBoardDetailsLoaded
-    ? `${rows.length} / ${data.length} range-ready flops`
+    ? `${rows.length} / ${data.length} flops shown`
     : `${rows.length} / ${data.length} flops`;
   renderRangeMatrices();
   renderFrequencyPanels();
   renderPinnedList();
   if (!rows.length) {
     svg.appendChild(el("text", {x: width / 2, y: height / 2, class: "empty"})).textContent = isRangeAwareView && !boardDetailsLoadedCount
-      ? "Loading range-ready board details..."
+      ? "Loading flop data..."
       : "No flops match the current filters";
     return;
   }
@@ -2703,9 +2711,17 @@ function draw() {
 
   const xLabel = el("text", {x: margin.left + innerW / 2, y: height - 17, "text-anchor": "middle", class: "axis-label"});
   xLabel.textContent = xModeLabel();
+  appendSvgTitle(xLabel, plotView === "wetDynamic"
+    ? "How much the chosen range can improve on future streets."
+    : "Current hand-strength edge for the aggressor range minus the caller range.");
   svg.appendChild(xLabel);
   const yLabel = el("text", {x: 19, y: margin.top + innerH / 2, transform: `rotate(-90 19 ${margin.top + innerH / 2})`, "text-anchor": "middle", class: "axis-label"});
   yLabel.textContent = yModeLabel();
+  appendSvgTitle(yLabel, plotView === "wetDynamic"
+    ? "How much future cards can change nutted-hand access."
+    : yMode === "dirtyShared"
+    ? "Outs that both selected ranges can share or block."
+    : "Future nut outs for the aggressor range minus the caller range.");
   svg.appendChild(yLabel);
   drawLegend(width, margin);
 

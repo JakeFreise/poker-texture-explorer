@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Aggressor Draw Pressure vs Nut-Shift Dynamicness</title>
-  <link rel="stylesheet" href="app.css?v=range-plot-matrix-5">
+  <link rel="stylesheet" href="app.css?v=range-plot-matrix-6">
 
 </head>
 <body>
@@ -14,9 +14,9 @@
       <h1 id="plotTitle">Aggressor Draw Pressure vs Nut-Shift Dynamicness</h1>
       <div>
         <div class="plot-tabs" id="plotTabs">
-          <button class="plot-tab active" data-view="wetDynamic">Draw Pressure</button>
-          <button class="plot-tab" data-view="gold" data-y-mode="futureNut">Future Nut</button>
-          <button class="plot-tab" data-view="gold" data-y-mode="dirtyShared">Dirty Shared</button>
+          <button class="plot-tab active" data-view="wetDynamic" title="How much the selected range can improve across turn and river.">Draw Pressure <span class="help-dot" aria-hidden="true">?</span></button>
+          <button class="plot-tab" data-view="gold" data-y-mode="futureNut" title="Current strength edge versus future nut-out edge for the two selected ranges.">Future Nut <span class="help-dot" aria-hidden="true">?</span></button>
+          <button class="plot-tab" data-view="gold" data-y-mode="dirtyShared" title="Advanced view for outs both ranges can share or block. Loads detailed board data on demand.">Dirty Shared <span class="help-dot" aria-hidden="true">?</span></button>
         </div>
         <div class="count" id="count"></div>
       </div>
@@ -35,7 +35,7 @@
   </section>
   <aside>
     <section class="section perspective-section" id="drawPressurePerspectiveSection">
-      <h2>Draw Pressure Perspective</h2>
+      <h2 title="Choose which selected range drives the Draw Pressure x-axis.">Draw Pressure Perspective</h2>
       <div class="segmented-control" role="radiogroup" aria-label="Draw pressure active range">
         <label>
           <input type="radio" name="drawPressureRole" value="hero" checked>
@@ -142,7 +142,7 @@
     </section>
   </aside>
 </main>
-<script src="app.js?v=range-plot-matrix-5" defer></script>
+<script src="app.js?v=range-plot-matrix-6" defer></script>
 
 </body>
 </html>

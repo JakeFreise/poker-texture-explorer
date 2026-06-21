@@ -107,7 +107,7 @@
   "presets": [
     {
       "id": "top_strength_slider",
-      "label": "Top strength slider",
+      "label": "Top ranked hands slider",
       "group": "Manual / Diagnostic",
       "description": "Use the existing top-N static hand-strength order.",
       "mode": "slider",
