@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-8";
+const rangePlotDataVersion = "range-plot-matrix-9";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -141,7 +141,8 @@ function fallbackRangePresetConfig() {
   return {
     version: "fallback-binary-1",
     presets: [
-      {id: "top_strength_slider", label: "Top ranked hands slider", group: "Manual", mode: "slider", hands: []},
+      {id: "linear_open_slider", label: "Linear open priority", group: "Slider Orders", mode: "slider", hands: []},
+      {id: "top_strength_slider", label: "Static strength order", group: "Slider Orders", mode: "slider", hands: []},
       {id: "co_rfi", label: "CO RFI", group: "RFI", hands: ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AKs", "AQs", "AJs", "ATs", "A9s", "A8s", "A5s", "A4s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s", "98s", "87s", "76s", "AKo", "AQo", "AJo", "ATo", "KQo"]},
       {id: "bb_call_vs_co", label: "BB Call vs CO", group: "Facing RFI", hands: ["QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s", "A5s", "A4s", "A3s", "A2s", "KQs", "KJs", "KTs", "K9s", "K8s", "QJs", "QTs", "Q9s", "JTs", "J9s", "T9s", "T8s", "98s", "97s", "87s", "76s", "65s", "AQo", "AJo", "ATo", "KQo", "KJo", "QJo"]}
     ]
@@ -165,7 +166,7 @@ function normalizeRangePresets() {
     }))
     .filter(preset => preset.id && preset.label);
   if (!rangePresets.some(preset => preset.mode === "slider")) {
-    rangePresets.unshift({id: "top_strength_slider", label: "Top ranked hands slider", group: "Manual", description: "", mode: "slider", hands: []});
+    rangePresets.unshift({id: "linear_open_slider", label: "Linear open priority", group: "Slider Orders", description: "", mode: "slider", hands: []});
   }
   baseRangePresets = new Map(rangePresets.map(preset => [preset.id, {...preset, hands: [...preset.hands]}]));
 }
@@ -237,7 +238,7 @@ function drawPressureRoleLabel() {
 
 function rangeUsesTopStrengthSlider(role) {
   const preset = selectedPreset(role);
-  return !preset || preset.mode === "slider";
+  return !preset || preset.id === "top_strength_slider";
 }
 
 function setDefaults() {
@@ -245,8 +246,9 @@ function setDefaults() {
   hoveredFlop = null;
   controls.heroRangePercent.value = 100;
   controls.villainRangePercent.value = 100;
-  if (controls.heroRangePreset) controls.heroRangePreset.value = presetById("top_strength_slider") ? "top_strength_slider" : rangePresets[0]?.id || "";
-  if (controls.villainRangePreset) controls.villainRangePreset.value = presetById("top_strength_slider") ? "top_strength_slider" : rangePresets[0]?.id || "";
+  const defaultSlider = presetById("linear_open_slider") ? "linear_open_slider" : presetById("top_strength_slider") ? "top_strength_slider" : rangePresets[0]?.id || "";
+  if (controls.heroRangePreset) controls.heroRangePreset.value = defaultSlider;
+  if (controls.villainRangePreset) controls.villainRangePreset.value = defaultSlider;
   controls.search.value = "";
   controls.texture.value = "all";
   drawPressureRole = "hero";
@@ -325,8 +327,9 @@ function baseSelectedRangeKeys(role, preset = selectedPreset(role)) {
   if (preset && preset.mode !== "slider") return new Set(preset.hands);
   const control = role === "hero" ? controls.heroRangePercent : controls.villainRangePercent;
   const percent = Number(control.value);
-  const count = percent >= 100 ? rangeOrder.length : Math.max(1, Math.floor(rangeOrder.length * percent / 100));
-  return new Set(rangeOrder.slice(0, count));
+  const sliderOrder = preset?.hands?.length ? preset.hands : rangeOrder;
+  const count = percent >= 100 ? sliderOrder.length : Math.max(1, Math.floor(sliderOrder.length * percent / 100));
+  return new Set(sliderOrder.slice(0, count));
 }
 
 function rangePaintDraft(role, preset = selectedPreset(role)) {
@@ -572,7 +575,7 @@ function renderRangeMatrix(role) {
     countLabel.textContent = "Range controls apply to Gold and Draw Pressure";
   } else {
     const rankLine = document.createElement("div");
-    const presetLabel = usesSlider ? "top ranked hands" : rangePreset.label;
+    const presetLabel = usesSlider ? rangePreset?.label || "Slider order" : rangePreset.label;
     const boardLabel = detailFlop
       ? `${selectedFlop ? "selected " : ""}${detailFlop.flop_key} ranks`
       : "no board selected";
