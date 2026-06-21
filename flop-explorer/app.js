@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-10";
+const rangePlotDataVersion = "range-plot-matrix-11";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -143,6 +143,7 @@ function fallbackRangePresetConfig() {
     version: "fallback-binary-1",
     presets: [
       {id: "linear_open_slider", label: "Linear open priority", group: "Slider Orders", mode: "slider", hands: []},
+      {id: "polar_priority_slider", label: "Polar priority", group: "Slider Orders", mode: "slider", hands: []},
       {id: "top_strength_slider", label: "Static strength order", group: "Slider Orders", mode: "slider", hands: []},
       {id: "co_rfi", label: "CO RFI", group: "RFI", hands: ["AA", "KK", "QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AKs", "AQs", "AJs", "ATs", "A9s", "A8s", "A5s", "A4s", "KQs", "KJs", "KTs", "QJs", "QTs", "JTs", "T9s", "98s", "87s", "76s", "AKo", "AQo", "AJo", "ATo", "KQo"]},
       {id: "bb_call_vs_co", label: "BB Call vs CO", group: "Facing RFI", hands: ["QQ", "JJ", "TT", "99", "88", "77", "66", "55", "44", "33", "22", "AQs", "AJs", "ATs", "A9s", "A8s", "A7s", "A6s", "A5s", "A4s", "A3s", "A2s", "KQs", "KJs", "KTs", "K9s", "K8s", "QJs", "QTs", "Q9s", "JTs", "J9s", "T9s", "T8s", "98s", "97s", "87s", "76s", "65s", "AQo", "AJo", "ATo", "KQo", "KJo", "QJo"]}
