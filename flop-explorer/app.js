@@ -37,7 +37,7 @@ const tripsDrawHitBandCache = new WeakMap();
 const pairBandCache = new WeakMap();
 const rangeFrequencyHtmlCache = new Map();
 const boardDetailVersion = "draw-outs-4-straight-draw-class";
-const rangePlotDataVersion = "range-plot-matrix-9";
+const rangePlotDataVersion = "range-plot-matrix-10";
 const futureShowdownVersion = "pair-straight-matrix-1";
 const displayRoleLabels = {
   hero: "Aggressor",
@@ -45,6 +45,7 @@ const displayRoleLabels = {
 };
 let rangeOrder = [];
 let rangeRank = new Map();
+let sliderRankMaps = new Map();
 const rankOrder = "AKQJT98765432".split("");
 const canonicalSuits = ["●", "○", "△", "◆"];
 let hoveredFlop = null;
@@ -150,6 +151,7 @@ function fallbackRangePresetConfig() {
 }
 
 function normalizeRangePresets() {
+  sliderRankMaps = new Map();
   const validHands = new Set(rangeOrder);
   rangePresets = (rangePresetConfig?.presets || [])
     .map(preset => ({
@@ -222,6 +224,24 @@ function presetControl(role) {
 
 function selectedPreset(role) {
   return presetById(presetControl(role)?.value);
+}
+
+function rangeOrderRankMap(preset) {
+  if (!preset || preset.mode !== "slider") return rangeRank;
+  const cacheKey = preset.hands?.length ? preset.id : "static-strength";
+  if (sliderRankMaps.has(cacheKey)) return sliderRankMaps.get(cacheKey);
+  const order = preset.hands?.length ? preset.hands : rangeOrder;
+  const rankMap = new Map(order.map((hand, index) => [hand, index + 1]));
+  sliderRankMaps.set(cacheKey, rankMap);
+  return rankMap;
+}
+
+function rangeRankText(role, key, preset = selectedPreset(role)) {
+  if (!preset) return "";
+  const rank = rangeOrderRankMap(preset).get(key);
+  if (!rank) return "";
+  if (preset.mode === "slider") return `${preset.label || "Slider order"} #${rank}`;
+  return `Static strength #${rangeRank.get(key) || rank}`;
 }
 
 function activeDetailFlop() {
@@ -580,7 +600,7 @@ function renderRangeMatrix(role) {
       ? `${selectedFlop ? "selected " : ""}${detailFlop.flop_key} ranks`
       : "no board selected";
     rankLine.textContent = usesSlider
-      ? `${presetLabel}: ${percentControl.value}% (${count}/${rangeOrder.length} hand cells) - ${boardLabel}`
+      ? `Slider order: ${presetLabel} - top ${percentControl.value}% (${count}/${rangeOrder.length} hand cells) - ${boardLabel}`
       : `${presetLabel}: ${count}/${rangeOrder.length} hand cells - ${boardLabel}`;
     const comboLine = document.createElement("div");
     comboLine.className = "combo-compression";
@@ -601,16 +621,16 @@ function renderRangeMatrix(role) {
       label.className = "range-cell-label";
       label.textContent = key;
       cell.appendChild(label);
-      const rank = rangeRank.get(key);
+      const rankText = rangeRankText(role, key, rangePreset);
       const contribution = detailFlop?.range_cells?.[key] || null;
       const drawBadge = cellSelected ? drawOutBadgeSummary(contribution, detailFlop, key) : null;
       const drawLabels = richCellTooltips && detailFlop ? drawLabelsForContribution(contribution, true, detailFlop, key) : [];
       const titleFor = richCellTooltips
-        ? (futureRows, exactRowsByCell = null) => rangeCellTooltip(role, key, detailFlop, contribution, strengths[key], currentShowdownRows, futureRows, opponentSelected, cellSelected, rank, drawLabels, drawBadge, exactRowsByCell)
+        ? (futureRows, exactRowsByCell = null) => rangeCellTooltip(role, key, detailFlop, contribution, strengths[key], currentShowdownRows, futureRows, opponentSelected, cellSelected, rankText, drawLabels, drawBadge, exactRowsByCell)
         : null;
       const titleText = () => titleFor
         ? titleFor(null)
-        : rangeCellSummaryTitle(role, key, detailFlop, contribution, cellSelected, rank, drawBadge);
+        : rangeCellSummaryTitle(role, key, detailFlop, contribution, cellSelected, rankText, drawBadge);
       let badge = null;
       if (drawBadge) {
         badge = document.createElement("span");
@@ -639,7 +659,7 @@ function renderRangeMatrix(role) {
       } else if (detailFlop) {
         cell.title = titleText();
       } else {
-        cell.title = rank ? `${key}: #${rank}` : key;
+        cell.title = rankText ? `${key}: ${rankText}` : key;
       }
       if (richCellTooltips && detailFlop && futureShowdownRows && rangeActive) {
         const enrichTitle = () => {
@@ -655,12 +675,12 @@ function renderRangeMatrix(role) {
   }
 }
 
-function rangeCellSummaryTitle(role, key, d, contribution, isInRange, rank, drawBadge) {
+function rangeCellSummaryTitle(role, key, d, contribution, isInRange, rankText, drawBadge) {
   const roleLabel = displayRoleLabels[role] || role;
-  if (!d) return rank ? `${key}: #${rank}` : key;
+  if (!d) return rankText ? `${key}: ${rankText}` : key;
   const lines = [
     `${key} on ${d.flop_key}`,
-    `${isInRange ? roleLabel + " range" : "outside " + roleLabel + " range"}${rank ? ` - static rank #${rank}` : ""}`,
+    `${isInRange ? roleLabel + " range" : "outside " + roleLabel + " range"}${rankText ? ` - ${rankText}` : ""}`,
   ];
   if (!contribution || !contribution.combo_count) {
     lines.push("0 live combos after board removal");
@@ -674,12 +694,12 @@ function rangeCellSummaryTitle(role, key, d, contribution, isInRange, rank, draw
   return lines.join("\n");
 }
 
-function rangeCellTooltip(role, key, d, contribution, strengthEntry, currentShowdownRows, futureShowdownRows, opponentSelected, isInRange, rank, drawLabels, drawBadge, exactRowsByCell = null) {
+function rangeCellTooltip(role, key, d, contribution, strengthEntry, currentShowdownRows, futureShowdownRows, opponentSelected, isInRange, rankText, drawLabels, drawBadge, exactRowsByCell = null) {
   const roleLabel = displayRoleLabels[role] || role;
   const otherLabel = displayRoleLabels[opponentRole(role)] || opponentRole(role);
   const lines = [
     `${key} on ${d.flop_key}`,
-    `${isInRange ? roleLabel + " range" : "outside " + roleLabel + " range"}${rank ? ` - static rank #${rank}` : ""}`,
+    `${isInRange ? roleLabel + " range" : "outside " + roleLabel + " range"}${rankText ? ` - ${rankText}` : ""}`,
   ];
   if (!contribution || !contribution.combo_count) {
     lines.push("0 live combos after board removal");
