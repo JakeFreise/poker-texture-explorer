@@ -33,7 +33,8 @@ jobs:
           cp -r !(public|.git|.github) public/
           mkdir -p public/flop-explorer
           cp -r texture_outs_nut_potential_app/. public/flop-explorer/
-          printf '<!doctype html><meta charset="utf-8"><title>blob.ink</title><a href="/flop-explorer/">Flop Explorer</a>' > public/index.html
+          test -f public/index.html
+          test -f public/portfolio/home.css
 
       - name: Configure Pages
         uses: actions/configure-pages@v5

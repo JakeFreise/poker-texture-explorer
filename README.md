@@ -1,4 +1,14 @@
-# Texture Outs Nut Potential App
+# blob.ink
+
+Jake Freise's personal portfolio, with Flop Explorer at `/flop-explorer/` and Skyline at `/skyline/`.
+
+The homepage is `index.html`, with styles, favicon, and a self-hosted Geist font in `portfolio/`. It has no JavaScript or build dependencies. Project previews reuse the existing chart and building-photo assets; the photo credit is linked in the footer.
+
+Both Pages workflows copy the actual homepage and its assets. Do not replace `public/index.html` with a generated redirect or placeholder when publishing. To add a project, add an article inside `.project-grid` and update the displayed project count.
+
+Preview the homepage at the local server root using the command below. The same server also serves both app paths.
+
+## Texture Outs Nut Potential App
 
 Static plot app for poker board texture and range analysis.
 
